@@ -1,4 +1,6 @@
 # TouchFret
 TouchFret
 
-https://santismo.github.io/iPad-Midi-Fretboard/
+fretboard midi controller for ipad
+
+https://santismo.github.io/TouchFret/
