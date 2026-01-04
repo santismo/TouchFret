@@ -8,20 +8,21 @@
       :root {
         font-family: "Avenir Next", "Futura", "Trebuchet MS", sans-serif;
         color: #f4f4f4;
-        --bg-color: #050505;
+        --bg-color: #000000;
         --panel: rgba(10, 10, 10, 0.78);
         --panel-strong: rgba(15, 15, 15, 0.92);
         --text-muted: #9a9a9a;
         --pad-gap: clamp(6px, 1.2vw, 14px);
-        --row-gap: 2px;
+        --row-gap: 0px;
         --pad-radius: 16px;
-        --pad-fill: rgba(8, 12, 12, 0.92);
-        --pad-border: rgba(120, 230, 230, 0.65);
-        --pad-glow: rgba(120, 230, 230, 0.35);
-        --pad-active-fill: rgba(20, 40, 40, 0.95);
-        --pad-active-glow: rgba(180, 255, 255, 0.75);
+        --pad-fill: #0a0a0a;
+        --pad-border: rgba(255, 255, 255, 0.8);
+        --pad-glow: rgba(255, 255, 255, 0.25);
+        --pad-active-fill: #1a1a1a;
+        --pad-active-glow: rgba(255, 255, 255, 0.7);
         --pad-scale: 1.06;
-        --marker-color: rgba(220, 250, 250, 0.7);
+        --pad-text-size: 64px;
+        --marker-color: rgba(255, 255, 255, 0.7);
         --bg-media-opacity: 0.55;
         --bg-media-blur: 0px;
         --pad-image: none;
@@ -145,7 +146,7 @@
         box-shadow: 0 0 10px var(--marker-color);
       }
 
-            .fret-markers .marker-dot.marker {
+      .fret-markers .marker-dot.marker {
         opacity: 1;
       }
 
@@ -182,8 +183,14 @@
       }
 
       .pad .pad-emoji {
-        font-size: clamp(14px, 2.4vw, 28px);
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--pad-text-size);
         line-height: 1;
+        text-align: center;
       }
 
       .pad::after {
@@ -257,6 +264,24 @@
 
       .fretboard[data-content-mode="image"] .pad.active {
         background-image: var(--pad-image-active, var(--pad-image));
+      }
+
+      .fretboard[data-content-mode="image"] .pad-emoji {
+        display: none;
+      }
+
+      .fretboard[data-content-mode="emoji"] .pad {
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+      }
+
+      .fretboard[data-content-mode="emoji"] .pad .pad-emoji {
+        filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.35));
+      }
+
+      .fretboard[data-content-mode="emoji"] .pad.active .pad-emoji {
+        filter: drop-shadow(0 0 14px rgba(255, 255, 255, 0.7));
       }
 
       .settings-panel {
@@ -458,7 +483,18 @@
             </div>
             <div class="field">
               <label for="marker-color">Marker color</label>
-              <input id="marker-color" type="color" value="#dcfaf8" />
+              <input id="marker-color" type="color" value="#ffffff" />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Themes</h3>
+            <div class="field">
+              <label for="theme-select">Preset</label>
+              <select id="theme-select"></select>
+            </div>
+            <div class="field">
+              <span>Applies colors, shape, and content defaults.</span>
             </div>
           </div>
 
@@ -466,8 +502,8 @@
             <h3>Layout</h3>
             <div class="field">
               <label for="row-gap">String spacing</label>
-              <input id="row-gap" type="range" min="0" max="20" value="2" step="1" />
-              <span id="row-gap-value">2px</span>
+              <input id="row-gap" type="range" min="0" max="20" value="0" step="1" />
+              <span id="row-gap-value">0px</span>
             </div>
           </div>
 
@@ -488,29 +524,29 @@
             </div>
             <div class="field">
               <label for="pad-fill">Pad fill</label>
-              <input id="pad-fill" type="color" value="#0b1111" />
+              <input id="pad-fill" type="color" value="#0a0a0a" />
             </div>
             <div class="field">
               <label for="pad-border">Pad border</label>
-              <input id="pad-border" type="color" value="#7be6e6" />
+              <input id="pad-border" type="color" value="#f5f5f5" />
             </div>
             <div class="field">
               <label for="pad-glow">Pad glow</label>
-              <input id="pad-glow" type="color" value="#7be6e6" />
+              <input id="pad-glow" type="color" value="#f5f5f5" />
             </div>
             <div class="field">
               <label for="pad-active">Active fill</label>
-              <input id="pad-active" type="color" value="#1a3434" />
+              <input id="pad-active" type="color" value="#1a1a1a" />
             </div>
             <div class="field">
               <label for="pad-active-glow">Active glow</label>
-              <input id="pad-active-glow" type="color" value="#c9ffff" />
+              <input id="pad-active-glow" type="color" value="#ffffff" />
             </div>
             <div class="field">
               <label for="color-mode">Color mode</label>
               <select id="color-mode">
                 <option value="gradient">String gradient</option>
-                <option value="custom">Custom</option>
+                <option value="custom" selected>Custom</option>
               </select>
             </div>
             <div class="field" id="gradient-top-field">
@@ -529,16 +565,21 @@
               <label for="content-mode">Content</label>
               <select id="content-mode">
                 <option value="blank">Blank</option>
-                <option value="emoji">Emoji</option>
+                <option value="emoji">Emoji/Text</option>
                 <option value="image">Image</option>
               </select>
             </div>
+            <div class="field" id="pad-text-size-field">
+              <label for="pad-text-size">Pad text size</label>
+              <input id="pad-text-size" type="range" min="16" max="140" value="64" step="1" />
+              <span id="pad-text-size-value">64px</span>
+            </div>
             <div class="field" id="emoji-rest-field">
-              <label for="emoji-rest">Emoji rest</label>
+              <label for="emoji-rest">Pad text rest</label>
               <input id="emoji-rest" type="text" value="" />
             </div>
             <div class="field" id="emoji-active-field">
-              <label for="emoji-active">Emoji active</label>
+              <label for="emoji-active">Pad text active</label>
               <input id="emoji-active" type="text" value="" />
             </div>
             <div class="field" id="image-rest-field">
@@ -563,7 +604,7 @@
             </div>
             <div class="field">
               <label for="bg-color">Background color</label>
-              <input id="bg-color" type="color" value="#050505" />
+              <input id="bg-color" type="color" value="#000000" />
             </div>
             <div class="field" id="bg-image-field">
               <label for="bg-image-input">Background image</label>
@@ -639,6 +680,7 @@
 
       const markerModeSelect = document.getElementById("marker-mode");
       const markerColorInput = document.getElementById("marker-color");
+      const themeSelect = document.getElementById("theme-select");
       const rowGapRange = document.getElementById("row-gap");
       const rowGapValue = document.getElementById("row-gap-value");
 
@@ -656,6 +698,9 @@
       const gradientBottomField = document.getElementById("gradient-bottom-field");
 
       const contentModeSelect = document.getElementById("content-mode");
+      const padTextSizeRange = document.getElementById("pad-text-size");
+      const padTextSizeValue = document.getElementById("pad-text-size-value");
+      const padTextSizeField = document.getElementById("pad-text-size-field");
       const emojiRestInput = document.getElementById("emoji-rest");
       const emojiActiveInput = document.getElementById("emoji-active");
       const emojiRestField = document.getElementById("emoji-rest-field");
@@ -697,6 +742,399 @@
       let colorMode = colorModeSelect.value;
       const activePointers = new Map();
       const sustainedNotes = new Set();
+
+      const themes = [
+        {
+          id: "mono",
+          name: "Mono",
+          bgColor: "#000000",
+          padFill: "#0a0a0a",
+          padBorder: "#f5f5f5",
+          padGlow: "#ffffff",
+          padActiveFill: "#1a1a1a",
+          padActiveGlow: "#ffffff",
+          markerColor: "#ffffff",
+          shape: "rounded",
+          cornerRadius: 16,
+          colorMode: "custom",
+          contentMode: "blank",
+          padTextSize: 64,
+        },
+        {
+          id: "ice",
+          name: "Ice Glass",
+          bgColor: "#040b11",
+          padFill: "#061418",
+          padBorder: "#8fe8ff",
+          padGlow: "#5dd9ff",
+          padActiveFill: "#0f2a31",
+          padActiveGlow: "#c8f7ff",
+          markerColor: "#c8f7ff",
+          shape: "rounded",
+          cornerRadius: 18,
+          colorMode: "custom",
+        },
+        {
+          id: "amber",
+          name: "Amber Glow",
+          bgColor: "#120805",
+          padFill: "#1a0b07",
+          padBorder: "#ffb36a",
+          padGlow: "#ff8a3d",
+          padActiveFill: "#3a1608",
+          padActiveGlow: "#ffd7a0",
+          markerColor: "#ffd7a0",
+          shape: "rounded",
+          cornerRadius: 16,
+          colorMode: "custom",
+        },
+        {
+          id: "neon-lime",
+          name: "Neon Lime",
+          bgColor: "#050a05",
+          padFill: "#0c1408",
+          padBorder: "#b6ff5a",
+          padGlow: "#7dff00",
+          padActiveFill: "#223b12",
+          padActiveGlow: "#d9ff9f",
+          markerColor: "#d9ff9f",
+          shape: "rounded",
+          cornerRadius: 12,
+          colorMode: "custom",
+        },
+        {
+          id: "deep-sea",
+          name: "Deep Sea",
+          bgColor: "#02060d",
+          padFill: "#050d1a",
+          padBorder: "#54b5ff",
+          padGlow: "#1b7dd1",
+          padActiveFill: "#0e1f38",
+          padActiveGlow: "#8fd6ff",
+          markerColor: "#8fd6ff",
+          shape: "circle",
+          cornerRadius: 24,
+          colorMode: "custom",
+        },
+        {
+          id: "sunset",
+          name: "Sunset Fade",
+          bgColor: "#120606",
+          padFill: "#150909",
+          padBorder: "#ff8f8f",
+          padGlow: "#ffb36a",
+          padActiveFill: "#321010",
+          padActiveGlow: "#ffd2b0",
+          markerColor: "#ffd2b0",
+          shape: "rounded",
+          cornerRadius: 20,
+          colorMode: "gradient",
+          gradientTop: "#ff6a6a",
+          gradientBottom: "#ffb36a",
+        },
+        {
+          id: "desert",
+          name: "Desert Clay",
+          bgColor: "#100b07",
+          padFill: "#1b120b",
+          padBorder: "#e6c9a8",
+          padGlow: "#d7a26f",
+          padActiveFill: "#2f1d12",
+          padActiveGlow: "#f0dcc7",
+          markerColor: "#f0dcc7",
+          shape: "square",
+          cornerRadius: 6,
+          colorMode: "custom",
+        },
+        {
+          id: "electric",
+          name: "Electric Blue",
+          bgColor: "#02050f",
+          padFill: "#060c1a",
+          padBorder: "#5ad7ff",
+          padGlow: "#2d7cff",
+          padActiveFill: "#12284a",
+          padActiveGlow: "#a6ecff",
+          markerColor: "#a6ecff",
+          shape: "hex",
+          cornerRadius: 8,
+          colorMode: "custom",
+        },
+        {
+          id: "circuit",
+          name: "Circuit",
+          bgColor: "#030806",
+          padFill: "#08150f",
+          padBorder: "#4affb1",
+          padGlow: "#2aff8c",
+          padActiveFill: "#123523",
+          padActiveGlow: "#9fffd8",
+          markerColor: "#9fffd8",
+          shape: "square",
+          cornerRadius: 8,
+          colorMode: "custom",
+        },
+        {
+          id: "cherry",
+          name: "Cherry",
+          bgColor: "#120205",
+          padFill: "#1a0308",
+          padBorder: "#ff5a7a",
+          padGlow: "#ff2f5a",
+          padActiveFill: "#360812",
+          padActiveGlow: "#ffb1c4",
+          markerColor: "#ffb1c4",
+          shape: "rounded",
+          cornerRadius: 14,
+          colorMode: "custom",
+        },
+        {
+          id: "mint",
+          name: "Mint Pop",
+          bgColor: "#03100c",
+          padFill: "#051913",
+          padBorder: "#68ffd6",
+          padGlow: "#2cffc3",
+          padActiveFill: "#0e3326",
+          padActiveGlow: "#a7ffe6",
+          markerColor: "#a7ffe6",
+          shape: "rounded",
+          cornerRadius: 18,
+          colorMode: "custom",
+        },
+        {
+          id: "aurora",
+          name: "Aurora",
+          bgColor: "#02080c",
+          padFill: "#05141b",
+          padBorder: "#73ffda",
+          padGlow: "#4bd6ff",
+          padActiveFill: "#113344",
+          padActiveGlow: "#b0fff0",
+          markerColor: "#b0fff0",
+          shape: "rounded",
+          cornerRadius: 20,
+          colorMode: "gradient",
+          gradientTop: "#6ee6ff",
+          gradientBottom: "#9affc2",
+        },
+        {
+          id: "candy",
+          name: "Candy",
+          bgColor: "#120410",
+          padFill: "#1b0818",
+          padBorder: "#ff89c6",
+          padGlow: "#7de1ff",
+          padActiveFill: "#341028",
+          padActiveGlow: "#ffd1e9",
+          markerColor: "#ffd1e9",
+          shape: "circle",
+          cornerRadius: 24,
+          colorMode: "gradient",
+          gradientTop: "#ff89c6",
+          gradientBottom: "#7de1ff",
+        },
+        {
+          id: "lava",
+          name: "Lava",
+          bgColor: "#140402",
+          padFill: "#1c0805",
+          padBorder: "#ff7b3a",
+          padGlow: "#ff451f",
+          padActiveFill: "#3a1208",
+          padActiveGlow: "#ffb693",
+          markerColor: "#ffb693",
+          shape: "rounded",
+          cornerRadius: 14,
+          colorMode: "custom",
+        },
+        {
+          id: "forest",
+          name: "Forest Mist",
+          bgColor: "#020703",
+          padFill: "#09140b",
+          padBorder: "#8dff99",
+          padGlow: "#3ccf72",
+          padActiveFill: "#153524",
+          padActiveGlow: "#c6ffd0",
+          markerColor: "#c6ffd0",
+          shape: "rounded",
+          cornerRadius: 18,
+          colorMode: "custom",
+        },
+        {
+          id: "steel",
+          name: "Steel",
+          bgColor: "#0a0a0c",
+          padFill: "#121218",
+          padBorder: "#d1d6df",
+          padGlow: "#8d9bb0",
+          padActiveFill: "#1e2230",
+          padActiveGlow: "#f2f5f9",
+          markerColor: "#f2f5f9",
+          shape: "square",
+          cornerRadius: 6,
+          colorMode: "custom",
+        },
+        {
+          id: "citrus",
+          name: "Citrus",
+          bgColor: "#0c0a02",
+          padFill: "#161203",
+          padBorder: "#fff59a",
+          padGlow: "#ffd351",
+          padActiveFill: "#2a2207",
+          padActiveGlow: "#fff6c5",
+          markerColor: "#fff6c5",
+          shape: "rounded",
+          cornerRadius: 16,
+          colorMode: "custom",
+        },
+        {
+          id: "rose",
+          name: "Rose Gold",
+          bgColor: "#12080b",
+          padFill: "#1a0c12",
+          padBorder: "#f4b5b5",
+          padGlow: "#ff9d87",
+          padActiveFill: "#362030",
+          padActiveGlow: "#ffd9d0",
+          markerColor: "#ffd9d0",
+          shape: "rounded",
+          cornerRadius: 20,
+          colorMode: "custom",
+        },
+        {
+          id: "plasma",
+          name: "Plasma",
+          bgColor: "#0c0414",
+          padFill: "#15081f",
+          padBorder: "#b68bff",
+          padGlow: "#ff6ee7",
+          padActiveFill: "#2e123c",
+          padActiveGlow: "#e2c7ff",
+          markerColor: "#e2c7ff",
+          shape: "hex",
+          cornerRadius: 8,
+          colorMode: "gradient",
+          gradientTop: "#9b8cff",
+          gradientBottom: "#ff6ee7",
+        },
+        {
+          id: "glacier",
+          name: "Glacier Hex",
+          bgColor: "#02060f",
+          padFill: "#06121f",
+          padBorder: "#8fe8ff",
+          padGlow: "#4bb6ff",
+          padActiveFill: "#102a4b",
+          padActiveGlow: "#c5f2ff",
+          markerColor: "#c5f2ff",
+          shape: "hex",
+          cornerRadius: 8,
+          colorMode: "custom",
+        },
+        {
+          id: "pixel",
+          name: "Pixel Mono",
+          bgColor: "#000000",
+          padFill: "#0f0f0f",
+          padBorder: "#ffffff",
+          padGlow: "#ffffff",
+          padActiveFill: "#1f1f1f",
+          padActiveGlow: "#ffffff",
+          markerColor: "#ffffff",
+          shape: "square",
+          cornerRadius: 4,
+          colorMode: "custom",
+        },
+        {
+          id: "orbital",
+          name: "Orbital",
+          bgColor: "#05060b",
+          padFill: "#0d1220",
+          padBorder: "#8bd3ff",
+          padGlow: "#8bd3ff",
+          padActiveFill: "#1c2745",
+          padActiveGlow: "#cfe9ff",
+          markerColor: "#cfe9ff",
+          shape: "circle",
+          cornerRadius: 24,
+          colorMode: "custom",
+        },
+        {
+          id: "retro",
+          name: "Retro Sky",
+          bgColor: "#0a0b12",
+          padFill: "#111422",
+          padBorder: "#76ffe0",
+          padGlow: "#ff9ad5",
+          padActiveFill: "#1f2a3a",
+          padActiveGlow: "#ffd1f0",
+          markerColor: "#ffd1f0",
+          shape: "rounded",
+          cornerRadius: 18,
+          colorMode: "gradient",
+          gradientTop: "#76ffe0",
+          gradientBottom: "#ff9ad5",
+        },
+        {
+          id: "noir-red",
+          name: "Noir Red",
+          bgColor: "#050000",
+          padFill: "#0f0505",
+          padBorder: "#ff5a5a",
+          padGlow: "#ff1f1f",
+          padActiveFill: "#2b0d0d",
+          padActiveGlow: "#ff9f9f",
+          markerColor: "#ff9f9f",
+          shape: "rounded",
+          cornerRadius: 14,
+          colorMode: "custom",
+        },
+        {
+          id: "ocean",
+          name: "Ocean Foam",
+          bgColor: "#020a0a",
+          padFill: "#071818",
+          padBorder: "#7afff5",
+          padGlow: "#37e6d8",
+          padActiveFill: "#153636",
+          padActiveGlow: "#b2fff7",
+          markerColor: "#b2fff7",
+          shape: "rounded",
+          cornerRadius: 18,
+          colorMode: "custom",
+        },
+        {
+          id: "violet",
+          name: "Violet Pulse",
+          bgColor: "#09050f",
+          padFill: "#120a1b",
+          padBorder: "#c6a0ff",
+          padGlow: "#9f6bff",
+          padActiveFill: "#261236",
+          padActiveGlow: "#dcc7ff",
+          markerColor: "#dcc7ff",
+          shape: "rounded",
+          cornerRadius: 16,
+          colorMode: "custom",
+        },
+        {
+          id: "sunbeam",
+          name: "Sunbeam",
+          bgColor: "#101005",
+          padFill: "#181809",
+          padBorder: "#ffe07a",
+          padGlow: "#ffc857",
+          padActiveFill: "#2a2a10",
+          padActiveGlow: "#fff1b5",
+          markerColor: "#fff1b5",
+          shape: "rounded",
+          cornerRadius: 16,
+          colorMode: "custom",
+        },
+      ];
 
       function clamp(value, min, max) {
         return Math.min(max, Math.max(min, value));
@@ -797,6 +1235,89 @@
           row.style.setProperty("--row-border", rgbToCss(mixed, 0.75));
           row.style.setProperty("--row-glow", rgbToCss(mixed, 0.45));
         });
+      }
+
+      function populateThemes() {
+        themeSelect.innerHTML = "";
+        themes.forEach((theme) => {
+          const option = document.createElement("option");
+          option.value = theme.id;
+          option.textContent = theme.name;
+          themeSelect.appendChild(option);
+        });
+      }
+
+      function applyTheme(theme) {
+        if (!theme) return;
+        if (theme.bgColor) {
+          bgColorInput.value = theme.bgColor;
+          document.documentElement.style.setProperty("--bg-color", theme.bgColor);
+        }
+        if (theme.padFill) {
+          padFillInput.value = theme.padFill;
+          document.documentElement.style.setProperty("--pad-fill", theme.padFill);
+        }
+        if (theme.padBorder) {
+          padBorderInput.value = theme.padBorder;
+          document.documentElement.style.setProperty("--pad-border", theme.padBorder);
+        }
+        if (theme.padGlow) {
+          padGlowInput.value = theme.padGlow;
+          document.documentElement.style.setProperty("--pad-glow", theme.padGlow);
+        }
+        if (theme.padActiveFill) {
+          padActiveInput.value = theme.padActiveFill;
+          document.documentElement.style.setProperty("--pad-active-fill", theme.padActiveFill);
+        }
+        if (theme.padActiveGlow) {
+          padActiveGlowInput.value = theme.padActiveGlow;
+          document.documentElement.style.setProperty("--pad-active-glow", theme.padActiveGlow);
+        }
+        if (theme.markerColor) {
+          markerColorInput.value = theme.markerColor;
+          document.documentElement.style.setProperty("--marker-color", theme.markerColor);
+        }
+        if (theme.shape) {
+          shapeSelect.value = theme.shape;
+          fretboard.dataset.shape = theme.shape;
+        }
+        if (theme.cornerRadius != null) {
+          cornerRadiusRange.value = String(theme.cornerRadius);
+          document.documentElement.style.setProperty("--pad-radius", `${theme.cornerRadius}px`);
+        }
+        if (theme.colorMode) {
+          colorModeSelect.value = theme.colorMode;
+          colorMode = theme.colorMode;
+          updateColorModeFields();
+        }
+        if (theme.gradientTop) {
+          gradientTopInput.value = theme.gradientTop;
+        }
+        if (theme.gradientBottom) {
+          gradientBottomInput.value = theme.gradientBottom;
+        }
+        applyRowColors();
+        if (theme.contentMode) {
+          contentModeSelect.value = theme.contentMode;
+          contentMode = theme.contentMode;
+          fretboard.dataset.contentMode = contentMode;
+          updateContentFields();
+        }
+        if (theme.emojiRest != null) {
+          emojiRestInput.value = theme.emojiRest;
+          emojiRest = theme.emojiRest;
+        }
+        if (theme.emojiActive != null) {
+          emojiActiveInput.value = theme.emojiActive;
+          emojiActive = theme.emojiActive;
+        }
+        if (theme.padTextSize != null) {
+          setPadTextSize(theme.padTextSize);
+        }
+        if (theme.rowGap != null) {
+          setRowGap(theme.rowGap);
+        }
+        updatePadEmoji();
       }
 
       function setSettingsOpen(open) {
@@ -1073,10 +1594,17 @@
         document.documentElement.style.setProperty("--marker-color", markerColorInput.value);
       });
 
+      themeSelect.addEventListener("change", () => {
+        const theme = themes.find((entry) => entry.id === themeSelect.value);
+        applyTheme(theme);
+      });
+
       rowGapRange.addEventListener("input", () => {
-        const value = Number(rowGapRange.value);
-        document.documentElement.style.setProperty("--row-gap", `${value}px`);
-        rowGapValue.textContent = `${value}px`;
+        setRowGap(rowGapRange.value);
+      });
+
+      padTextSizeRange.addEventListener("input", () => {
+        setPadTextSize(padTextSizeRange.value);
       });
 
       shapeSelect.addEventListener("change", () => {
@@ -1203,6 +1731,20 @@
         document.body.dataset.glow = touchGlowSelect.value;
       });
 
+      function setRowGap(value) {
+        const clamped = clamp(Number(value), 0, 20);
+        rowGapRange.value = String(clamped);
+        document.documentElement.style.setProperty("--row-gap", `${clamped}px`);
+        rowGapValue.textContent = `${clamped}px`;
+      }
+
+      function setPadTextSize(value) {
+        const clamped = clamp(Number(value), 16, 140);
+        padTextSizeRange.value = String(clamped);
+        document.documentElement.style.setProperty("--pad-text-size", `${clamped}px`);
+        padTextSizeValue.textContent = `${clamped}px`;
+      }
+
       function updateVelocityFields() {
         const isPressure = velocityMode === "pressure";
         fixedVelocityField.classList.toggle("hidden", isPressure);
@@ -1213,6 +1755,7 @@
       function updateContentFields() {
         const showEmoji = contentMode === "emoji";
         const showImage = contentMode === "image";
+        padTextSizeField.classList.toggle("hidden", !showEmoji);
         emojiRestField.classList.toggle("hidden", !showEmoji);
         emojiActiveField.classList.toggle("hidden", !showEmoji);
         imageRestField.classList.toggle("hidden", !showImage);
@@ -1243,12 +1786,16 @@
 
       buildMarkers();
       buildFretboard();
+      populateThemes();
+      themeSelect.value = themes[0]?.id || "";
+      applyTheme(themes[0]);
       updateVelocityFields();
       updateContentFields();
       updateBackgroundFields();
       updateColorModeFields();
       updatePressureStatus();
-      rowGapRange.dispatchEvent(new Event("input"));
+      setRowGap(rowGapRange.value);
+      setPadTextSize(padTextSizeRange.value);
       initMidi();
     </script>
   </body>
