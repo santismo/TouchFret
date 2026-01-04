@@ -1,1 +1,1217 @@
 
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>iPad MIDI Fretboard</title>
+    <style>
+      :root {
+        font-family: "Avenir Next", "Futura", "Trebuchet MS", sans-serif;
+        color: #f4f4f4;
+        --bg-color: #050505;
+        --panel: rgba(10, 10, 10, 0.78);
+        --panel-strong: rgba(15, 15, 15, 0.92);
+        --text-muted: #9a9a9a;
+        --pad-gap: clamp(6px, 1.2vw, 14px);
+        --pad-radius: 16px;
+        --pad-fill: rgba(8, 12, 12, 0.92);
+        --pad-border: rgba(120, 230, 230, 0.65);
+        --pad-glow: rgba(120, 230, 230, 0.35);
+        --pad-active-fill: rgba(20, 40, 40, 0.95);
+        --pad-active-glow: rgba(180, 255, 255, 0.75);
+        --pad-scale: 1.06;
+        --marker-color: rgba(220, 250, 250, 0.7);
+        --bg-media-opacity: 0.55;
+        --bg-media-blur: 0px;
+        --pad-image: none;
+        --pad-image-active: none;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg-color);
+        color: inherit;
+        overflow: hidden;
+      }
+
+      .background-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      .background-layer img,
+      .background-layer video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        filter: blur(var(--bg-media-blur));
+        transition: opacity 0.2s ease;
+      }
+
+      body[data-bg-mode="image"] .background-layer img {
+        opacity: var(--bg-media-opacity);
+      }
+
+      body[data-bg-mode="video"] .background-layer video {
+        opacity: var(--bg-media-opacity);
+      }
+
+      main.app {
+        position: relative;
+        z-index: 1;
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 12px;
+        padding: clamp(12px, 2.5vw, 24px);
+      }
+
+      header.toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .pill {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 0.85rem;
+        letter-spacing: 0.02em;
+      }
+
+      button {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 10px 14px;
+        background: var(--panel);
+        color: inherit;
+        font-size: 0.85rem;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+      }
+
+      button:hover {
+        border-color: rgba(255, 255, 255, 0.4);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button[aria-pressed="true"] {
+        border-color: rgba(255, 255, 255, 0.6);
+        box-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+        background: var(--panel-strong);
+      }
+
+      .fret-markers {
+        display: grid;
+        grid-template-columns: repeat(13, minmax(0, 1fr));
+        gap: var(--pad-gap);
+        height: 14px;
+        align-items: center;
+        justify-items: center;
+      }
+
+      .fret-markers .marker-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--marker-color);
+        opacity: 0;
+        box-shadow: 0 0 10px var(--marker-color);
+      }
+
+            .fret-markers .marker-dot.marker {
+        opacity: 1;
+      }
+
+      body[data-marker-mode="pads"] .fret-markers,
+      body[data-marker-mode="off"] .fret-markers {
+        opacity: 0;
+        height: 0;
+      }
+
+      .fretboard {
+        display: grid;
+        gap: var(--pad-gap);
+        touch-action: none;
+        user-select: none;
+      }
+
+      .string-row {
+        display: grid;
+        grid-template-columns: repeat(13, minmax(0, 1fr));
+        gap: var(--pad-gap);
+      }
+
+      .pad {
+        position: relative;
+        aspect-ratio: 1 / 1;
+        border-radius: var(--pad-radius);
+        border: 2px solid var(--row-border, var(--pad-border));
+        background: var(--pad-fill);
+        box-shadow: 0 0 0 1px var(--row-border, var(--pad-border)),
+          0 0 16px var(--row-glow, var(--pad-glow));
+        display: grid;
+        place-items: center;
+        transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+      }
+
+      .pad .pad-emoji {
+        font-size: clamp(14px, 2.4vw, 28px);
+        line-height: 1;
+      }
+
+      .pad::after {
+        content: "";
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--marker-color);
+        box-shadow: 0 0 10px var(--marker-color);
+        opacity: 0;
+      }
+
+      .pad.marker::after {
+        opacity: 0;
+      }
+
+      body[data-marker-mode="pads"] .pad.marker::after,
+      body[data-marker-mode="both"] .pad.marker::after {
+        opacity: 0.8;
+      }
+
+      .pad.active {
+        background: var(--pad-active-fill);
+        box-shadow: 0 0 0 2px var(--row-glow, var(--pad-active-glow)),
+          0 0 20px var(--row-glow, var(--pad-active-glow));
+      }
+
+      body[data-scale="on"] .pad.active {
+        transform: scale(var(--pad-scale));
+      }
+
+      body[data-scale="off"] .pad.active {
+        transform: none;
+      }
+
+      body[data-glow="off"] .pad {
+        box-shadow: none;
+      }
+
+      body[data-glow="off"] .pad.active {
+        box-shadow: none;
+      }
+
+      .fretboard[data-shape="square"] .pad {
+        border-radius: 6px;
+      }
+
+      .fretboard[data-shape="rounded"] .pad {
+        border-radius: var(--pad-radius);
+      }
+
+      .fretboard[data-shape="circle"] .pad {
+        border-radius: 50%;
+      }
+
+      .fretboard[data-shape="hex"] .pad {
+        border-radius: 8px;
+        clip-path: polygon(25% 4%, 75% 4%, 98% 50%, 75% 96%, 25% 96%, 2% 50%);
+      }
+
+      .fretboard[data-content-mode="blank"] .pad-emoji {
+        display: none;
+      }
+
+      .fretboard[data-content-mode="image"] .pad {
+        background-image: var(--pad-image);
+        background-size: cover;
+        background-position: center;
+      }
+
+      .fretboard[data-content-mode="image"] .pad.active {
+        background-image: var(--pad-image-active, var(--pad-image));
+      }
+
+      .settings-panel {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 10;
+        padding: 16px;
+      }
+
+      .settings-panel.open {
+        display: flex;
+      }
+
+      .settings-card {
+        width: min(1100px, 100%);
+        max-height: 90vh;
+        background: var(--panel-strong);
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 16px;
+        overflow: auto;
+        display: grid;
+        gap: 12px;
+      }
+
+      .settings-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .settings-section {
+        background: rgba(8, 8, 8, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 14px;
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .settings-section h3 {
+        margin: 0;
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+
+      label {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      input[type="range"],
+      select,
+      input[type="text"],
+      input[type="color"] {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(5, 5, 5, 0.7);
+        color: inherit;
+        font-size: 0.85rem;
+      }
+
+      input[type="file"] {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field.inline {
+        grid-template-columns: 1fr auto;
+        align-items: center;
+      }
+
+      .field.inline span {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      @media (max-width: 900px) {
+        header.toolbar {
+          gap: 8px;
+        }
+
+        button {
+          padding: 8px 10px;
+          font-size: 0.8rem;
+        }
+      }
+    </style>
+  </head>
+  <body data-marker-mode="edges" data-bg-mode="color" data-scale="on" data-glow="on">
+    <div class="background-layer">
+      <img id="bg-image" alt="" />
+      <video id="bg-video" muted loop playsinline></video>
+    </div>
+
+    <main class="app">
+      <header class="toolbar">
+        <div class="toolbar-group">
+          <button id="octave-down" type="button">Oct -</button>
+          <div class="pill" id="octave-display">Oct 0</div>
+          <button id="octave-up" type="button">Oct +</button>
+          <button id="sustain-toggle" type="button" aria-pressed="false">Sustain</button>
+        </div>
+        <div class="toolbar-group">
+          <div class="pill" id="midi-status">MIDI: off</div>
+          <button id="settings-button" type="button">Settings</button>
+        </div>
+      </header>
+
+      <div class="fret-markers" id="markers-top"></div>
+      <section class="fretboard" id="fretboard" data-shape="rounded" data-content-mode="blank"></section>
+      <div class="fret-markers" id="markers-bottom"></div>
+    </main>
+
+    <div class="settings-panel" id="settings-panel" aria-hidden="true">
+      <div class="settings-card">
+        <div class="settings-header">
+          <h2>Settings</h2>
+          <button id="settings-close" type="button">Close</button>
+        </div>
+        <div class="settings-grid">
+          <div class="settings-section">
+            <h3>MIDI</h3>
+            <div class="field">
+              <label for="midi-output">Output</label>
+              <select id="midi-output"></select>
+            </div>
+            <button id="midi-refresh" type="button">Refresh</button>
+            <div class="field">
+              <span id="midi-status-detail">MIDI: not connected.</span>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Velocity</h3>
+            <div class="field">
+              <label for="velocity-mode">Mode</label>
+              <select id="velocity-mode">
+                <option value="pressure">Pressure</option>
+                <option value="fixed">Fixed</option>
+              </select>
+            </div>
+            <div class="field" id="fixed-velocity-field">
+              <label for="fixed-velocity">Fixed velocity</label>
+              <input id="fixed-velocity" type="range" min="1" max="127" value="96" />
+            </div>
+            <div class="field" id="pressure-min-field">
+              <label for="pressure-min">Pressure min</label>
+              <input id="pressure-min" type="range" min="1" max="127" value="30" />
+            </div>
+            <div class="field" id="pressure-max-field">
+              <label for="pressure-max">Pressure max</label>
+              <input id="pressure-max" type="range" min="1" max="127" value="120" />
+            </div>
+            <div class="field">
+              <span id="pressure-status">Pressure: unknown</span>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Markers</h3>
+            <div class="field">
+              <label for="marker-mode">Marker mode</label>
+              <select id="marker-mode">
+                <option value="edges">Edges</option>
+                <option value="pads">Pads</option>
+                <option value="both">Both</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="marker-color">Marker color</label>
+              <input id="marker-color" type="color" value="#dcfaf8" />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Pad style</h3>
+            <div class="field">
+              <label for="shape-select">Shape</label>
+              <select id="shape-select">
+                <option value="rounded">Rounded</option>
+                <option value="square">Square</option>
+                <option value="circle">Circle</option>
+                <option value="hex">Hex</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="corner-radius">Corner radius</label>
+              <input id="corner-radius" type="range" min="0" max="32" value="16" />
+            </div>
+            <div class="field">
+              <label for="pad-fill">Pad fill</label>
+              <input id="pad-fill" type="color" value="#0b1111" />
+            </div>
+            <div class="field">
+              <label for="pad-border">Pad border</label>
+              <input id="pad-border" type="color" value="#7be6e6" />
+            </div>
+            <div class="field">
+              <label for="pad-glow">Pad glow</label>
+              <input id="pad-glow" type="color" value="#7be6e6" />
+            </div>
+            <div class="field">
+              <label for="pad-active">Active fill</label>
+              <input id="pad-active" type="color" value="#1a3434" />
+            </div>
+            <div class="field">
+              <label for="pad-active-glow">Active glow</label>
+              <input id="pad-active-glow" type="color" value="#c9ffff" />
+            </div>
+            <div class="field">
+              <label for="color-mode">Color mode</label>
+              <select id="color-mode">
+                <option value="gradient">String gradient</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div class="field" id="gradient-top-field">
+              <label for="gradient-top">Gradient top</label>
+              <input id="gradient-top" type="color" value="#6ee6ff" />
+            </div>
+            <div class="field" id="gradient-bottom-field">
+              <label for="gradient-bottom">Gradient bottom</label>
+              <input id="gradient-bottom" type="color" value="#ffb36a" />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Pad content</h3>
+            <div class="field">
+              <label for="content-mode">Content</label>
+              <select id="content-mode">
+                <option value="blank">Blank</option>
+                <option value="emoji">Emoji</option>
+                <option value="image">Image</option>
+              </select>
+            </div>
+            <div class="field" id="emoji-rest-field">
+              <label for="emoji-rest">Emoji rest</label>
+              <input id="emoji-rest" type="text" value="" />
+            </div>
+            <div class="field" id="emoji-active-field">
+              <label for="emoji-active">Emoji active</label>
+              <input id="emoji-active" type="text" value="" />
+            </div>
+            <div class="field" id="image-rest-field">
+              <label for="image-rest">Image rest</label>
+              <input id="image-rest" type="file" accept="image/*" />
+            </div>
+            <div class="field" id="image-active-field">
+              <label for="image-active">Image active</label>
+              <input id="image-active" type="file" accept="image/*" />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Background</h3>
+            <div class="field">
+              <label for="bg-mode">Background</label>
+              <select id="bg-mode">
+                <option value="color">Color</option>
+                <option value="image">Image</option>
+                <option value="video">Video</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="bg-color">Background color</label>
+              <input id="bg-color" type="color" value="#050505" />
+            </div>
+            <div class="field" id="bg-image-field">
+              <label for="bg-image-input">Background image</label>
+              <input id="bg-image-input" type="file" accept="image/*" />
+            </div>
+            <div class="field" id="bg-video-field">
+              <label for="bg-video-input">Background video</label>
+              <input id="bg-video-input" type="file" accept="video/*" />
+            </div>
+            <div class="field">
+              <label for="bg-opacity">Background opacity</label>
+              <input id="bg-opacity" type="range" min="0" max="1" value="0.55" step="0.01" />
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Touch FX</h3>
+            <div class="field">
+              <label for="touch-scale">Scale on touch</label>
+              <select id="touch-scale">
+                <option value="on">On</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="touch-glow">Glow on touch</label>
+              <select id="touch-glow">
+                <option value="on">On</option>
+                <option value="off">Off</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const STRINGS = [
+        { name: "E4", base: 64 },
+        { name: "B3", base: 59 },
+        { name: "G3", base: 55 },
+        { name: "D3", base: 50 },
+        { name: "A2", base: 45 },
+        { name: "E2", base: 40 },
+      ];
+      const FRET_COUNT = 13;
+      const MARKER_FRETS = new Set([3, 5, 7, 9, 12]);
+
+      const fretboard = document.getElementById("fretboard");
+      const markersTop = document.getElementById("markers-top");
+      const markersBottom = document.getElementById("markers-bottom");
+      const octaveDown = document.getElementById("octave-down");
+      const octaveUp = document.getElementById("octave-up");
+      const octaveDisplay = document.getElementById("octave-display");
+      const sustainToggle = document.getElementById("sustain-toggle");
+      const midiStatus = document.getElementById("midi-status");
+      const settingsButton = document.getElementById("settings-button");
+      const settingsPanel = document.getElementById("settings-panel");
+      const settingsClose = document.getElementById("settings-close");
+
+      const midiOutputSelect = document.getElementById("midi-output");
+      const midiRefresh = document.getElementById("midi-refresh");
+      const midiStatusDetail = document.getElementById("midi-status-detail");
+
+      const velocityModeSelect = document.getElementById("velocity-mode");
+      const fixedVelocityRange = document.getElementById("fixed-velocity");
+      const pressureMinRange = document.getElementById("pressure-min");
+      const pressureMaxRange = document.getElementById("pressure-max");
+      const pressureStatus = document.getElementById("pressure-status");
+      const fixedVelocityField = document.getElementById("fixed-velocity-field");
+      const pressureMinField = document.getElementById("pressure-min-field");
+      const pressureMaxField = document.getElementById("pressure-max-field");
+
+      const markerModeSelect = document.getElementById("marker-mode");
+      const markerColorInput = document.getElementById("marker-color");
+
+      const shapeSelect = document.getElementById("shape-select");
+      const cornerRadiusRange = document.getElementById("corner-radius");
+      const padFillInput = document.getElementById("pad-fill");
+      const padBorderInput = document.getElementById("pad-border");
+      const padGlowInput = document.getElementById("pad-glow");
+      const padActiveInput = document.getElementById("pad-active");
+      const padActiveGlowInput = document.getElementById("pad-active-glow");
+      const colorModeSelect = document.getElementById("color-mode");
+      const gradientTopInput = document.getElementById("gradient-top");
+      const gradientBottomInput = document.getElementById("gradient-bottom");
+      const gradientTopField = document.getElementById("gradient-top-field");
+      const gradientBottomField = document.getElementById("gradient-bottom-field");
+
+      const contentModeSelect = document.getElementById("content-mode");
+      const emojiRestInput = document.getElementById("emoji-rest");
+      const emojiActiveInput = document.getElementById("emoji-active");
+      const emojiRestField = document.getElementById("emoji-rest-field");
+      const emojiActiveField = document.getElementById("emoji-active-field");
+      const imageRestInput = document.getElementById("image-rest");
+      const imageActiveInput = document.getElementById("image-active");
+      const imageRestField = document.getElementById("image-rest-field");
+      const imageActiveField = document.getElementById("image-active-field");
+
+      const bgModeSelect = document.getElementById("bg-mode");
+      const bgColorInput = document.getElementById("bg-color");
+      const bgImageInput = document.getElementById("bg-image-input");
+      const bgVideoInput = document.getElementById("bg-video-input");
+      const bgImageField = document.getElementById("bg-image-field");
+      const bgVideoField = document.getElementById("bg-video-field");
+      const bgOpacityRange = document.getElementById("bg-opacity");
+      const bgImage = document.getElementById("bg-image");
+      const bgVideo = document.getElementById("bg-video");
+
+      const touchScaleSelect = document.getElementById("touch-scale");
+      const touchGlowSelect = document.getElementById("touch-glow");
+
+      let midiAccess = null;
+      let midiOutput = null;
+      let octaveTranspose = 0;
+      let sustainActive = false;
+      let velocityMode = velocityModeSelect.value;
+      let fixedVelocity = Number(fixedVelocityRange.value);
+      let pressureMin = Number(pressureMinRange.value);
+      let pressureMax = Number(pressureMaxRange.value);
+      let contentMode = contentModeSelect.value;
+      let emojiRest = "";
+      let emojiActive = "";
+      let padImageUrl = "";
+      let padImageActiveUrl = "";
+      let bgImageUrl = "";
+      let bgVideoUrl = "";
+      let colorMode = colorModeSelect.value;
+      const activePointers = new Map();
+      const sustainedNotes = new Set();
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function hexToRgb(hex) {
+        const value = hex.replace("#", "");
+        if (value.length !== 6) return { r: 0, g: 0, b: 0 };
+        return {
+          r: parseInt(value.slice(0, 2), 16),
+          g: parseInt(value.slice(2, 4), 16),
+          b: parseInt(value.slice(4, 6), 16),
+        };
+      }
+
+      function mixColor(a, b, t) {
+        return {
+          r: Math.round(a.r + (b.r - a.r) * t),
+          g: Math.round(a.g + (b.g - a.g) * t),
+          b: Math.round(a.b + (b.b - a.b) * t),
+        };
+      }
+
+      function rgbToCss(color, alpha) {
+        return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+      }
+
+      function buildMarkers() {
+        markersTop.innerHTML = "";
+        markersBottom.innerHTML = "";
+        for (let i = 0; i < FRET_COUNT; i += 1) {
+          const topDot = document.createElement("div");
+          const bottomDot = document.createElement("div");
+          topDot.className = "marker-dot";
+          bottomDot.className = "marker-dot";
+          if (MARKER_FRETS.has(i)) {
+            topDot.classList.add("marker");
+            bottomDot.classList.add("marker");
+          }
+          markersTop.appendChild(topDot);
+          markersBottom.appendChild(bottomDot);
+        }
+      }
+
+      function buildFretboard() {
+        fretboard.innerHTML = "";
+        STRINGS.forEach((stringInfo, rowIndex) => {
+          const row = document.createElement("div");
+          row.className = "string-row";
+          row.dataset.row = rowIndex;
+          for (let fretIndex = 0; fretIndex < FRET_COUNT; fretIndex += 1) {
+            const pad = document.createElement("div");
+            pad.className = "pad";
+            pad.dataset.row = rowIndex;
+            pad.dataset.fret = fretIndex;
+            if (MARKER_FRETS.has(fretIndex)) {
+              pad.classList.add("marker");
+            }
+            const emojiSpan = document.createElement("span");
+            emojiSpan.className = "pad-emoji";
+            pad.appendChild(emojiSpan);
+            row.appendChild(pad);
+          }
+          fretboard.appendChild(row);
+        });
+        updateNotes();
+        applyRowColors();
+        updatePadEmoji();
+      }
+
+      function updateNotes() {
+        const pads = fretboard.querySelectorAll(".pad");
+        pads.forEach((pad) => {
+          const rowIndex = Number(pad.dataset.row);
+          const fretIndex = Number(pad.dataset.fret);
+          const baseNote = STRINGS[rowIndex].base + octaveTranspose * 12;
+          const midiNote = baseNote + fretIndex;
+          pad.dataset.note = String(midiNote);
+        });
+        octaveDisplay.textContent = `Oct ${octaveTranspose}`;
+      }
+
+      function applyRowColors() {
+        const rows = fretboard.querySelectorAll(".string-row");
+        if (colorMode !== "gradient") {
+          rows.forEach((row) => {
+            row.style.removeProperty("--row-border");
+            row.style.removeProperty("--row-glow");
+          });
+          return;
+        }
+        const topColor = hexToRgb(gradientTopInput.value || "#6ee6ff");
+        const bottomColor = hexToRgb(gradientBottomInput.value || "#ffb36a");
+        const lastIndex = Math.max(1, rows.length - 1);
+        rows.forEach((row, index) => {
+          const t = index / lastIndex;
+          const mixed = mixColor(topColor, bottomColor, t);
+          row.style.setProperty("--row-border", rgbToCss(mixed, 0.75));
+          row.style.setProperty("--row-glow", rgbToCss(mixed, 0.45));
+        });
+      }
+
+      function setSettingsOpen(open) {
+        settingsPanel.classList.toggle("open", open);
+        settingsPanel.setAttribute("aria-hidden", String(!open));
+      }
+
+      function sendMidi(message) {
+        if (midiOutput) {
+          midiOutput.send(message);
+        }
+      }
+
+      function noteOn(midiNote, velocity) {
+        sendMidi([0x90, midiNote, velocity]);
+      }
+
+      function noteOff(midiNote) {
+        sendMidi([0x80, midiNote, 0x00]);
+      }
+
+      function isNoteHeldByOthers(midiNote, pointerId) {
+        for (const [id, data] of activePointers.entries()) {
+          if (id === pointerId) continue;
+          if (data.note === midiNote) return true;
+        }
+        return false;
+      }
+
+      function isPadHeldByOthers(pad, pointerId) {
+        for (const [id, data] of activePointers.entries()) {
+          if (id === pointerId) continue;
+          if (data.pad === pad) return true;
+        }
+        return false;
+      }
+
+      function isNoteHeld(midiNote) {
+        for (const data of activePointers.values()) {
+          if (data.note === midiNote) return true;
+        }
+        return false;
+      }
+
+      function releaseSustainedNotes() {
+        sustainedNotes.forEach((note) => {
+          if (!isNoteHeld(note)) {
+            noteOff(note);
+          }
+        });
+        sustainedNotes.clear();
+      }
+
+      function getPressure(event) {
+        if (typeof event.pressure === "number" && event.pressure > 0) {
+          return event.pressure;
+        }
+        if (typeof event.force === "number" && event.force > 0) {
+          return event.force;
+        }
+        return 0;
+      }
+
+      function getVelocity(event) {
+        if (velocityMode === "pressure") {
+          const pressure = getPressure(event);
+          if (pressure > 0) {
+            return clamp(Math.round(pressureMin + pressure * (pressureMax - pressureMin)), 1, 127);
+          }
+        }
+        return clamp(Math.round(fixedVelocity), 1, 127);
+      }
+
+      function setPadEmoji(pad, active) {
+        if (contentMode !== "emoji") return;
+        const span = pad.querySelector(".pad-emoji");
+        if (!span) return;
+        span.textContent = active && emojiActive ? emojiActive : emojiRest;
+      }
+
+      function updatePadEmoji() {
+        const pads = fretboard.querySelectorAll(".pad");
+        pads.forEach((pad) => {
+          setPadEmoji(pad, pad.classList.contains("active"));
+        });
+      }
+
+      function pressPad(pad, velocity, pointerId) {
+        const midiNote = Number(pad.dataset.note);
+        activePointers.set(pointerId, { pad, note: midiNote });
+        pad.classList.add("active");
+        setPadEmoji(pad, true);
+        noteOn(midiNote, velocity);
+      }
+
+      function releasePad(pad, pointerId) {
+        if (!pad) return;
+        const data = activePointers.get(pointerId);
+        if (!data) return;
+        const midiNote = data.note;
+        activePointers.delete(pointerId);
+        if (!isPadHeldByOthers(pad, pointerId)) {
+          pad.classList.remove("active");
+          setPadEmoji(pad, false);
+        }
+        if (sustainActive) {
+          sustainedNotes.add(midiNote);
+          return;
+        }
+        if (!isNoteHeldByOthers(midiNote, pointerId)) {
+          noteOff(midiNote);
+        }
+      }
+
+      function handlePointerDown(event) {
+        const pad = event.target.closest(".pad");
+        if (!pad) return;
+        event.preventDefault();
+        const velocity = getVelocity(event);
+        pressPad(pad, velocity, event.pointerId);
+      }
+
+      function handlePointerMove(event) {
+        if (!activePointers.has(event.pointerId)) return;
+        event.preventDefault();
+        const element = document.elementFromPoint(event.clientX, event.clientY);
+        const pad = element ? element.closest(".pad") : null;
+        const current = activePointers.get(event.pointerId);
+        if (!current) return;
+        if (!pad || pad === current.pad) return;
+        releasePad(current.pad, event.pointerId);
+        const velocity = getVelocity(event);
+        pressPad(pad, velocity, event.pointerId);
+      }
+
+      function handlePointerUp(event) {
+        const current = activePointers.get(event.pointerId);
+        if (!current) return;
+        releasePad(current.pad, event.pointerId);
+      }
+
+      function stopAllNotes() {
+        for (const data of activePointers.values()) {
+          noteOff(data.note);
+        }
+        sustainedNotes.forEach((note) => {
+          noteOff(note);
+        });
+        activePointers.clear();
+        sustainedNotes.clear();
+        fretboard.querySelectorAll(".pad.active").forEach((pad) => {
+          pad.classList.remove("active");
+          setPadEmoji(pad, false);
+        });
+      }
+
+      async function initMidi() {
+        if (!navigator.requestMIDIAccess) {
+          midiStatus.textContent = "MIDI: unavailable";
+          midiStatusDetail.textContent = "MIDI: unavailable.";
+          return;
+        }
+        try {
+          midiAccess = await navigator.requestMIDIAccess();
+          midiStatus.textContent = "MIDI: ready";
+          midiStatusDetail.textContent = "MIDI: ready.";
+          refreshMidiOutputs();
+        } catch (error) {
+          midiStatus.textContent = "MIDI: blocked";
+          midiStatusDetail.textContent = "MIDI: blocked.";
+        }
+      }
+
+      function refreshMidiOutputs() {
+        midiOutputSelect.innerHTML = "";
+        if (!midiAccess) {
+          midiStatusDetail.textContent = "MIDI: unavailable.";
+          return;
+        }
+        const outputs = Array.from(midiAccess.outputs.values());
+        if (!outputs.length) {
+          midiStatusDetail.textContent = "MIDI: no outputs.";
+          midiStatus.textContent = "MIDI: none";
+          midiOutput = null;
+          return;
+        }
+        outputs.forEach((output, index) => {
+          const option = document.createElement("option");
+          option.value = output.id;
+          option.textContent = output.name || `Output ${index + 1}`;
+          midiOutputSelect.appendChild(option);
+        });
+        midiOutputSelect.selectedIndex = 0;
+        midiOutput = outputs[0];
+        midiStatus.textContent = `MIDI: ${midiOutput.name || "connected"}`;
+        midiStatusDetail.textContent = `MIDI: ${midiOutput.name || "connected"}.`;
+      }
+
+      midiOutputSelect.addEventListener("change", (event) => {
+        const outputId = event.target.value;
+        midiOutput = midiAccess?.outputs.get(outputId) || null;
+        midiStatus.textContent = midiOutput ? `MIDI: ${midiOutput.name || "connected"}` : "MIDI: none";
+        midiStatusDetail.textContent = midiOutput
+          ? `MIDI: ${midiOutput.name || "connected"}.`
+          : "MIDI: choose output.";
+      });
+
+      midiRefresh.addEventListener("click", refreshMidiOutputs);
+
+      octaveDown.addEventListener("click", () => {
+        octaveTranspose = clamp(octaveTranspose - 1, -3, 3);
+        stopAllNotes();
+        updateNotes();
+      });
+
+      octaveUp.addEventListener("click", () => {
+        octaveTranspose = clamp(octaveTranspose + 1, -3, 3);
+        stopAllNotes();
+        updateNotes();
+      });
+
+      sustainToggle.addEventListener("click", () => {
+        sustainActive = !sustainActive;
+        sustainToggle.setAttribute("aria-pressed", String(sustainActive));
+        if (!sustainActive) {
+          releaseSustainedNotes();
+        }
+      });
+
+      settingsButton.addEventListener("click", () => setSettingsOpen(true));
+      settingsClose.addEventListener("click", () => setSettingsOpen(false));
+      settingsPanel.addEventListener("click", (event) => {
+        if (event.target === settingsPanel) {
+          setSettingsOpen(false);
+        }
+      });
+
+      velocityModeSelect.addEventListener("change", () => {
+        velocityMode = velocityModeSelect.value;
+        updateVelocityFields();
+      });
+
+      fixedVelocityRange.addEventListener("input", () => {
+        fixedVelocity = Number(fixedVelocityRange.value);
+      });
+
+      pressureMinRange.addEventListener("input", () => {
+        pressureMin = Number(pressureMinRange.value);
+      });
+
+      pressureMaxRange.addEventListener("input", () => {
+        pressureMax = Number(pressureMaxRange.value);
+      });
+
+      markerModeSelect.addEventListener("change", () => {
+        document.body.dataset.markerMode = markerModeSelect.value;
+      });
+
+      markerColorInput.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--marker-color", markerColorInput.value);
+      });
+
+      shapeSelect.addEventListener("change", () => {
+        fretboard.dataset.shape = shapeSelect.value;
+      });
+
+      cornerRadiusRange.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--pad-radius", `${cornerRadiusRange.value}px`);
+      });
+
+      padFillInput.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--pad-fill", padFillInput.value);
+      });
+
+      padBorderInput.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--pad-border", padBorderInput.value);
+      });
+
+      padGlowInput.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--pad-glow", padGlowInput.value);
+      });
+
+      padActiveInput.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--pad-active-fill", padActiveInput.value);
+      });
+
+      padActiveGlowInput.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--pad-active-glow", padActiveGlowInput.value);
+      });
+
+      colorModeSelect.addEventListener("change", () => {
+        colorMode = colorModeSelect.value;
+        updateColorModeFields();
+        applyRowColors();
+      });
+
+      gradientTopInput.addEventListener("input", applyRowColors);
+      gradientBottomInput.addEventListener("input", applyRowColors);
+
+      contentModeSelect.addEventListener("change", () => {
+        contentMode = contentModeSelect.value;
+        fretboard.dataset.contentMode = contentMode;
+        updateContentFields();
+        updatePadEmoji();
+      });
+
+      emojiRestInput.addEventListener("input", () => {
+        emojiRest = emojiRestInput.value;
+        updatePadEmoji();
+      });
+
+      emojiActiveInput.addEventListener("input", () => {
+        emojiActive = emojiActiveInput.value;
+        updatePadEmoji();
+      });
+
+      function setPadImage(url) {
+        const value = url ? `url("${url}")` : "none";
+        document.documentElement.style.setProperty("--pad-image", value);
+      }
+
+      function setPadImageActive(url) {
+        const value = url ? `url("${url}")` : "none";
+        document.documentElement.style.setProperty("--pad-image-active", value);
+      }
+
+      imageRestInput.addEventListener("change", () => {
+        const file = imageRestInput.files?.[0];
+        if (!file) return;
+        if (padImageUrl) URL.revokeObjectURL(padImageUrl);
+        padImageUrl = URL.createObjectURL(file);
+        setPadImage(padImageUrl);
+      });
+
+      imageActiveInput.addEventListener("change", () => {
+        const file = imageActiveInput.files?.[0];
+        if (!file) return;
+        if (padImageActiveUrl) URL.revokeObjectURL(padImageActiveUrl);
+        padImageActiveUrl = URL.createObjectURL(file);
+        setPadImageActive(padImageActiveUrl);
+      });
+
+      bgModeSelect.addEventListener("change", () => {
+        document.body.dataset.bgMode = bgModeSelect.value;
+        updateBackgroundFields();
+      });
+
+      bgColorInput.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--bg-color", bgColorInput.value);
+      });
+
+      bgImageInput.addEventListener("change", () => {
+        const file = bgImageInput.files?.[0];
+        if (!file) return;
+        if (bgImageUrl) URL.revokeObjectURL(bgImageUrl);
+        bgImageUrl = URL.createObjectURL(file);
+        bgImage.src = bgImageUrl;
+        bgModeSelect.value = "image";
+        document.body.dataset.bgMode = "image";
+        updateBackgroundFields();
+      });
+
+      bgVideoInput.addEventListener("change", () => {
+        const file = bgVideoInput.files?.[0];
+        if (!file) return;
+        if (bgVideoUrl) URL.revokeObjectURL(bgVideoUrl);
+        bgVideoUrl = URL.createObjectURL(file);
+        bgVideo.src = bgVideoUrl;
+        bgVideo.play().catch(() => {});
+        bgModeSelect.value = "video";
+        document.body.dataset.bgMode = "video";
+        updateBackgroundFields();
+      });
+
+      bgOpacityRange.addEventListener("input", () => {
+        document.documentElement.style.setProperty("--bg-media-opacity", bgOpacityRange.value);
+      });
+
+      touchScaleSelect.addEventListener("change", () => {
+        document.body.dataset.scale = touchScaleSelect.value;
+      });
+
+      touchGlowSelect.addEventListener("change", () => {
+        document.body.dataset.glow = touchGlowSelect.value;
+      });
+
+      function updateVelocityFields() {
+        const isPressure = velocityMode === "pressure";
+        fixedVelocityField.classList.toggle("hidden", isPressure);
+        pressureMinField.classList.toggle("hidden", !isPressure);
+        pressureMaxField.classList.toggle("hidden", !isPressure);
+      }
+
+      function updateContentFields() {
+        const showEmoji = contentMode === "emoji";
+        const showImage = contentMode === "image";
+        emojiRestField.classList.toggle("hidden", !showEmoji);
+        emojiActiveField.classList.toggle("hidden", !showEmoji);
+        imageRestField.classList.toggle("hidden", !showImage);
+        imageActiveField.classList.toggle("hidden", !showImage);
+      }
+
+      function updateBackgroundFields() {
+        const mode = bgModeSelect.value;
+        bgImageField.classList.toggle("hidden", mode !== "image");
+        bgVideoField.classList.toggle("hidden", mode !== "video");
+      }
+
+      function updateColorModeFields() {
+        const showGradient = colorMode === "gradient";
+        gradientTopField.classList.toggle("hidden", !showGradient);
+        gradientBottomField.classList.toggle("hidden", !showGradient);
+      }
+
+      function updatePressureStatus() {
+        const supported = typeof PointerEvent !== "undefined" && "pressure" in PointerEvent.prototype;
+        pressureStatus.textContent = supported ? "Pressure: supported" : "Pressure: not detected";
+      }
+
+      fretboard.addEventListener("pointerdown", handlePointerDown);
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
+      window.addEventListener("pointercancel", handlePointerUp);
+
+      buildMarkers();
+      buildFretboard();
+      updateVelocityFields();
+      updateContentFields();
+      updateBackgroundFields();
+      updateColorModeFields();
+      updatePressureStatus();
+      initMidi();
+    </script>
+  </body>
+</html>
